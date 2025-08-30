@@ -1,0 +1,18 @@
+---
+- name: Launch Ubuntu container with htop
+  hosts: webserver
+  become: true
+
+  tasks:
+    - name: Pull latest Ubuntu image
+      docker_image:
+        name: ubuntu
+        source: pull
+
+    - name: Run Ubuntu container with htop installed
+      docker_container:
+        name: htop-container
+        image: ubuntu:latest
+        command: /bin/bash -c "apt update && apt install -y htop && htop"
+        tty: yes
+        state: started
