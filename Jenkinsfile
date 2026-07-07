@@ -70,7 +70,7 @@ pipeline {
                                                  usernameVariable: 'AWS_ACCESS_KEY_ID', 
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        # 🎯 Solution 2: जेनकिंस कंटेनर के अंदर ही कूबरनेटीस टोकन को फ्रेश अपडेट करना
+                        # 1. क्रेडेंशियल्स का उपयोग करके कंटेनर के अंदर EKS Kubeconfig जनरेट करें
                         aws eks update-kubeconfig --region ${env.AWS_DEFAULT_REGION} --name ${env.EKS_CLUSTER_NAME}
                         
                         ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
@@ -79,13 +79,22 @@ pipeline {
                         echo "Modifying manifest k8s-deploy.yml with new ECR image tag..."
                         sed -i "s|image: praveen230389/.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:${env.BUILD_NUMBER}|g" ./k8s-deploy.yml
                         
-                        # 🎯 Solution 2 (Recommended): बिना किसी नेस्टेड 'docker run' और बिना किसी वॉल्यूम माउंट के,
-                        # सीधे कंटेनर के नेटिव 'kubectl' टूल का उपयोग करके डिप्लॉयमेंट
-                        echo "Applying enterprise manifests directly to EKS Cluster..."
-                        kubectl apply -f ./k8s-deploy.yml -n production
+                        echo "Applying enterprise manifests via Host Volume Mapping..."
+                        # 🎯 FIXED (Solution 1): आपके दोस्त की ढूँढी हुई सटीक होस्ट डायरेक्टरी को यहाँ माउंट कर दिया गया है
+                        docker run --rm \\
+                          -v /var/run/docker.sock:/var/run/docker.sock \\
+                          -v /var/jenkins_home/.kube:/root/.kube \\
+                          -v /var/lib/docker/volumes/jenkins_home/_data/workspace/mavenapp:/apps \\
+                          -w /apps \\
+                          bitnami/kubectl:latest apply -f ./k8s-deploy.yml -n production
                         
                         echo "Checking live roll-out status directly from cluster..."
-                        kubectl rollout status deployment/mavenwebappdeployment -n production --timeout=90s
+                        docker run --rm \\
+                          -v /var/run/docker.sock:/var/run/docker.sock \\
+                          -v /var/jenkins_home/.kube:/root/.kube \\
+                          -v /var/lib/docker/volumes/jenkins_home/_data/workspace/mavenapp:/apps \\
+                          -w /apps \\
+                          bitnami/kubectl:latest rollout status deployment/mavenwebappdeployment -n production --timeout=90s
                     """
                 } 
             } 
