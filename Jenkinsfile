@@ -79,22 +79,12 @@ pipeline {
                         echo "Modifying manifest k8s-deploy.yml with new ECR image tag..."
                         sed -i "s|image: praveen230389/.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:${env.BUILD_NUMBER}|g" ./k8s-deploy.yml
                         
-                        echo "Applying enterprise manifests via Host Volume Mapping..."
-                        # 🎯 FIXED (Solution 1): आपके दोस्त की ढूँढी हुई सटीक होस्ट डायरेक्टरी को यहाँ माउंट कर दिया गया है
-                        docker run --rm \\
-                          -v /var/run/docker.sock:/var/run/docker.sock \\
-                          -v /var/jenkins_home/.kube:/root/.kube \\
-                          -v /var/lib/docker/volumes/jenkins_home/_data/workspace/mavenapp:/apps \\
-                          -w /apps \\
-                          bitnami/kubectl:latest apply -f ./k8s-deploy.yml -n production
+                        echo "Applying enterprise manifests via Correct Host Volume Mapping..."
+                        # 🎯 FIXED: आपके दोस्त का बताया हुआ सटीक होस्ट पाथ बिना किसी टूटने वाले बैकस्लैश के सीधे एक लाइन में:
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube -v /var/lib/docker/volumes/jenkins_home/_data/workspace/mavenapp:/apps -w /apps bitnami/kubectl:latest apply -f ./k8s-deploy.yml -n production
                         
                         echo "Checking live roll-out status directly from cluster..."
-                        docker run --rm \\
-                          -v /var/run/docker.sock:/var/run/docker.sock \\
-                          -v /var/jenkins_home/.kube:/root/.kube \\
-                          -v /var/lib/docker/volumes/jenkins_home/_data/workspace/mavenapp:/apps \\
-                          -w /apps \\
-                          bitnami/kubectl:latest rollout status deployment/mavenwebappdeployment -n production --timeout=90s
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube -v /var/lib/docker/volumes/jenkins_home/_data/workspace/mavenapp:/apps -w /apps bitnami/kubectl:latest rollout status deployment/mavenwebappdeployment -n production --timeout=90s
                     """
                 } 
             } 
