@@ -3,7 +3,7 @@ pipeline {
     
     tools {
         // पक्का करें कि आपके जेनकिंस UI (Global Tool Configuration) में Maven का नाम यही हो
-        maven 'maven-3.9.5' 
+        maven 'Maven-3.9.5' 
     }
     
     environment {
