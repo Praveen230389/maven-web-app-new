@@ -8,7 +8,7 @@ pipeline {
     environment {
         AWS_DEFAULT_REGION = "ap-south-1"
         TARGET_SERVICE     = "maven-web-app"
-        EKS_CLUSTER_NAME   = "ecommerce-cluster" // आपका असली क्लस्टर नाम
+        EKS_CLUSTER_NAME   = "ecommerce-cluster"
     }
     
     stages {
@@ -70,7 +70,7 @@ pipeline {
                                                  usernameVariable: 'AWS_ACCESS_KEY_ID', 
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        # 1. 🎯 FIXED: कूबरनेटीस की ऑफिशियल स्टोरेज (dl.k8s.io) से सीधे बाइनरी डाउनलोड करना
+                        # 1. 🎯 FIXED: कूबरनेटीस की ऑफिशियल बाइनरी स्टोरेज से सीधे kubectl डाउनलोड करना
                         echo "Downloading exact stable Kubectl binary..."
                         curl -LO "https://k8s.io"
                         chmod +x ./kubectl
@@ -94,9 +94,10 @@ pipeline {
                         echo "Verifying Rollout status on EKS..."
                         ./kubectl rollout status deployment/mavenwebappdeployment -n production --timeout=90s
                     """
-              }
-         }
-    }
+                } // FIXED: withCredentials ब्लॉक बंद किया
+            } // FIXED: steps ब्लॉक बंद किया
+        } // FIXED: stage ब्लॉक बंद किया
+    } // FIXED: stages ब्लॉक बंद किया
     
     post {
         always {
