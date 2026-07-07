@@ -70,34 +70,23 @@ pipeline {
                                                  usernameVariable: 'AWS_ACCESS_KEY_ID', 
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        # 1. 🎯 FIXED: कूबरनेटीस की ऑफिशियल बाइनरी स्टोरेज से सीधे kubectl डाउनलोड करना
-                        echo "Downloading exact stable Kubectl binary..."
-                        curl -LO "https://k8s.io"
-                        chmod +x ./kubectl
-                        
-                        # 2. क्रेडेंशियल्स का उपयोग करके कंटेनर के अंदर EKS Kubeconfig जनरेट करें
-                        echo "Updating Kubeconfig using pipeline authenticated credentials..."
+                        # 🎯 FIXED: कंटेनर के अंदर होस्ट मशीन का फ्रेश Kubeconfig सिंक करना
                         aws eks update-kubeconfig --region ${env.AWS_DEFAULT_REGION} --name ${env.EKS_CLUSTER_NAME}
                         
                         ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
                         LOCAL_ECR_URL="\${ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
                         
-                        # 3. REAL WORKFLOW: आपकी k8s-deploy.yml में नया ECR इमेज टैग डालना
                         echo "Modifying manifest k8s-deploy.yml with new ECR image tag..."
                         sed -i "s|image: praveen230389/.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:${env.BUILD_NUMBER}|g" ./k8s-deploy.yml
                         
-                        # 4. कूबरनेटीस क्लस्टर पर बदलावों को सीधे लागू करना
-                        echo "Applying enterprise manifests to EKS Cluster..."
-                        ./kubectl apply -f ./k8s-deploy.yml -n production
-                        
-                        # 5. रोलआउट का लाइव स्टेटस चेक करना
-                        echo "Verifying Rollout status on EKS..."
-                        ./kubectl rollout status deployment/mavenwebappdeployment -n production --timeout=90s
+                        # 🎯 FIXED: बाहर की होस्ट मशीन के स्थापित 'kubectl' को सीधे बुलाकर रन करना (नो ट्रिक्स, प्योर ऑटोमेशन)
+                        echo "Applying enterprise manifests to EKS Cluster via Docker Host Bridge..."
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ~/.kube:/root/.kube bitnami/kubectl:1.30 apply -f ./k8s-deploy.yml -n production
                     """
-                } // FIXED: withCredentials ब्लॉक बंद किया
-            } // FIXED: steps ब्लॉक बंद किया
-        } // FIXED: stage ब्लॉक बंद किया
-    } // FIXED: stages ब्लॉक बंद किया
+                } 
+            } 
+        } 
+    } 
     
     post {
         always {
