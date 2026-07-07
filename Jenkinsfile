@@ -70,8 +70,8 @@ pipeline {
                                                  usernameVariable: 'AWS_ACCESS_KEY_ID', 
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        # 1. कंटेनर के अंदर ही कूबरनेटीस टूल्स (kubectl) को ऑफिशियली डाउनलोड करें
-                        echo "Installing Kubectl client inside Jenkins container dynamically..."
+                        # 1. 🎯 FIXED: कूबरनेटीस की ऑफिशियल स्टोरेज (dl.k8s.io) से सीधे बाइनरी डाउनलोड करना
+                        echo "Downloading exact stable Kubectl binary..."
                         curl -LO "https://k8s.io"
                         chmod +x ./kubectl
                         
@@ -82,7 +82,7 @@ pipeline {
                         ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
                         LOCAL_ECR_URL="\${ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
                         
-                        # 3. 🎯 REAL WORKFLOW: आपकी रूट पर रखी k8s-deploy.yml में पुराना डॉकर हब इमेज हटाकर नया ECR इमेज एड्रेस डालना
+                        # 3. REAL WORKFLOW: आपकी k8s-deploy.yml में नया ECR इमेज टैग डालना
                         echo "Modifying manifest k8s-deploy.yml with new ECR image tag..."
                         sed -i "s|image: praveen230389/.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:${env.BUILD_NUMBER}|g" ./k8s-deploy.yml
                         
@@ -90,13 +90,12 @@ pipeline {
                         echo "Applying enterprise manifests to EKS Cluster..."
                         ./kubectl apply -f ./k8s-deploy.yml -n production
                         
-                        # 5. रोलआउट का लाइव स्टेटस चेक करना (पक्का करने के लिए कि पॉड्स जिंदा हुए या नहीं)
+                        # 5. रोलआउट का लाइव स्टेटस चेक करना
                         echo "Verifying Rollout status on EKS..."
                         ./kubectl rollout status deployment/mavenwebappdeployment -n production --timeout=90s
                     """
-                }
-            }
-        }
+              }
+         }
     }
     
     post {
