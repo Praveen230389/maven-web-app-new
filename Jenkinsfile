@@ -2,30 +2,23 @@ pipeline {
     agent any
     
     tools {
-        // पक्का करें कि आपके जेनकिंस UI (Global Tool Configuration) में Maven का नाम यही हो
         maven 'Maven-3.9.5' 
     }
     
     environment {
         AWS_DEFAULT_REGION = "ap-south-1"
-        TARGET_SERVICE     = "maven-web-app" // आपकी इस इमेज का नाम ECR के लिए
+        TARGET_SERVICE     = "maven-web-app"
     }
     
     stages {
-        stage('Workspace Clean') {
-            steps {
-                echo "Cleaning up the old workspace cache..."
-                cleanWs()
-            }
-        }
-        
-        // 🎯 FIXED: यहाँ दोबारा मैन्युअल गिट क्लोन करने की कोई जरूरत नहीं है, 
-        // जेनकिंस की डिफ़ॉल्ट चेकआउट स्टेज ही सब कुछ सही पाथ पर डाउनलोड रखेगी।
+        // 🎯 FIXED: वर्कस्पेस क्लीनअप को 'Checkout SCM' से भी पहले लाने के लिए 
+        // इसे 'skipDefaultCheckout()' के साथ या बिल्कुल शुरुआत में रखना सबसे सही है, 
+        // लेकिन सबसे आसान तरीका यह है कि हम इस स्टेज को ही हटा दें क्योंकि गिट खुद क्लीनअप कर देता है।
         
         stage('Maven Compile & Package') {
             steps {
                 echo "Building Java Web Application (WAR) via Maven..."
-                sh 'mvn clean package'
+                sh 'mvn clean package' // अब यहाँ pom.xml सुरक्षित मिलेगी!
             }
         }
         
@@ -52,8 +45,6 @@ pipeline {
                     sh """
                         ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
                         LOCAL_ECR_URL="\${ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
-                        
-                        # सीधे रूट पर रखी तुम्हारी असली Dockerfile से इमेज बिल्ड होगी
                         docker build -t \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:latest .
                     """
                 }
@@ -69,7 +60,6 @@ pipeline {
                     sh """
                         ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
                         LOCAL_ECR_URL="\${ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
-                        
                         docker push \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:latest
                     """
                 }
@@ -86,11 +76,9 @@ pipeline {
                         ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
                         LOCAL_ECR_URL="\${ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
                         
-                        echo "Replacing Image Tag inside your k8s folder files..."
                         sed -i "s|image: REPLACE_WITH_AWS_ECR_URL/.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:latest|g" ./k8s/*.yaml || true
                         sed -i "s|image: .*/${env.TARGET_SERVICE}:.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:latest|g" ./k8s/*.yaml || true
                         
-                        echo "Applying manifests to EKS cluster..."
                         kubectl apply -f ./k8s/ -n production || true
                     """
                 }
@@ -101,7 +89,10 @@ pipeline {
     post {
         always {
             script {
+                echo "Cleaning up local docker layers..."
                 sh "docker image prune -f || true"
+                // 🎯 FIXED: वर्कस्पेस को हमेशा बिल्ड के खत्म होने के बाद साफ करना चाहिए
+                cleanWs()
             }
         }
     }
