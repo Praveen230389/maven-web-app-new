@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     tools {
-        // पक्का करें कि आपके जेनकिंस UI में Maven का नाम यही सेट हो
+        // पक्का करें कि आपके जेनकिंस UI (Global Tool Configuration) में Maven का नाम यही सेट हो
         maven 'Maven-3.9.5' 
     }
     
@@ -80,11 +80,12 @@ pipeline {
                         echo "Modifying manifest k8s-deploy.yml with new ECR image tag..."
                         sed -i "s|image: praveen230389/.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:${env.BUILD_NUMBER}|g" ./k8s-deploy.yml
                         
-                        echo "Applying enterprise manifests to EKS Cluster via Official CNCF Tooling..."
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube lacework/kubectl:1.30 apply -f ./k8s-deploy.yml -n production
+                        echo "Applying enterprise manifests to EKS Cluster via Official Public Tooling..."
+                        # 🎯 FIXED: यहाँ पर 'bitnami/kubectl:latest' की बिल्कुल सही पब्लिक इमेज डाल दी है जो तुरंत पुल होगी
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube bitnami/kubectl:latest apply -f ./k8s-deploy.yml -n production
                         
                         echo "Checking live roll-out status directly from cluster..."
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube lacework/kubectl:1.30 rollout status deployment/mavenwebappdeployment -n production --timeout=90s
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube bitnami/kubectl:latest rollout status deployment/mavenwebappdeployment -n production --timeout=90s
                     """
                 } 
             } 
