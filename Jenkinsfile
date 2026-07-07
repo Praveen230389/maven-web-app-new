@@ -91,14 +91,4 @@ pipeline {
             } 
         } 
     } 
-    
-    post {
-        always {
-            script {
-                echo "[CLEANUP] Post-Build Actions: Pruning unused docker layers..."
-                sh "docker image prune -f || true"
-                cleanWs()
-            }
-        }
-    }
 }
