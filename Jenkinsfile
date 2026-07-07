@@ -81,11 +81,11 @@ pipeline {
                         sed -i "s|image: praveen230389/.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:${env.BUILD_NUMBER}|g" ./k8s-deploy.yml
                         
                         echo "Applying enterprise manifests to EKS Cluster via Official Public Tooling..."
-                        # 🎯 FIXED: यहाँ पर 'bitnami/kubectl:latest' की बिल्कुल सही पब्लिक इमेज डाल दी है जो तुरंत पुल होगी
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube bitnami/kubectl:latest apply -f ./k8s-deploy.yml -n production
+                        # 🎯 FIXED: वर्कस्पेस माउंट (-v) और वर्किंग डायरेक्टरी (-w) को जोड़ दिया गया है ताकि k8s-deploy.yml 100% डिटेक्ट हो जाए
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube -v \$(pwd):/apps -w /apps bitnami/kubectl:latest apply -f ./k8s-deploy.yml -n production
                         
                         echo "Checking live roll-out status directly from cluster..."
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube bitnami/kubectl:latest rollout status deployment/mavenwebappdeployment -n production --timeout=90s
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube -v \$(pwd):/apps -w /apps bitnami/kubectl:latest rollout status deployment/mavenwebappdeployment -n production --timeout=90s
                     """
                 } 
             } 
