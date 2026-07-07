@@ -2,6 +2,7 @@ pipeline {
     agent any
     
     tools {
+        // पक्का करें कि आपके जेनकिंस UI में Maven का नाम यही सेट हो
         maven 'Maven-3.9.5' 
     }
     
@@ -70,7 +71,7 @@ pipeline {
                                                  usernameVariable: 'AWS_ACCESS_KEY_ID', 
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        # 🎯 FIXED: कंटेनर के अंदर होस्ट मशीन का फ्रेश Kubeconfig सिंक करना
+                        # 1. क्रेडेंशियल्स का उपयोग करके कंटेनर के अंदर EKS Kubeconfig जनरेट करें
                         aws eks update-kubeconfig --region ${env.AWS_DEFAULT_REGION} --name ${env.EKS_CLUSTER_NAME}
                         
                         ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
@@ -79,9 +80,11 @@ pipeline {
                         echo "Modifying manifest k8s-deploy.yml with new ECR image tag..."
                         sed -i "s|image: praveen230389/.*|image: \${LOCAL_ECR_URL}/${env.TARGET_SERVICE}:${env.BUILD_NUMBER}|g" ./k8s-deploy.yml
                         
-                        # 🎯 FIXED: बाहर की होस्ट मशीन के स्थापित 'kubectl' को सीधे बुलाकर रन करना (नो ट्रिक्स, प्योर ऑटोमेशन)
-                        echo "Applying enterprise manifests to EKS Cluster via Docker Host Bridge..."
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ~/.kube:/root/.kube bitnami/kubectl:1.30 apply -f ./k8s-deploy.yml -n production
+                        echo "Applying enterprise manifests to EKS Cluster via Official CNCF Tooling..."
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube lacework/kubectl:1.30 apply -f ./k8s-deploy.yml -n production
+                        
+                        echo "Checking live roll-out status directly from cluster..."
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/.kube:/root/.kube lacework/kubectl:1.30 rollout status deployment/mavenwebappdeployment -n production --timeout=90s
                     """
                 } 
             } 
